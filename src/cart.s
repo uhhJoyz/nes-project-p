@@ -16,10 +16,11 @@ VAR:    .RES 1                  ; reserves 1 byte of memory in our "zero page" f
 
 .segment "STARTUP"
 RESET:
-    sei                         ; disable interrupts TODO: come back here and enable them later
+    sei                         ; disable interrupts so we will always handle this as expected
     cld                         ; disable decimal mode (unsupported by NES architecture)
 
-    ldx #$1000000                ; disable sound irq (load literal value 0x1000000 into index, or index register, X)
+    ;; the % here allows us to load 2-byte values
+    ldx #%1000000                ; disable sound irq (load literal value 0x1000000 into index, or index register, X)
     stx $4017                    ; store that value to the address (4017)
     ldx #$00
     stx $4010                   ; disable pcm
@@ -28,9 +29,8 @@ RESET:
     ldx #$FF                    ; load the literal 0xFF
     txs                         ; transfer it to the stack register
 
-CLEAR_PPU:   
     ;; clear the PPU (pixel processing unit) registers
-    lxd #$00
+    ldx #$00
     stx $2000
     stx $2001
 
@@ -78,19 +78,46 @@ CLEARMEMORY:
 
     ldx #$00
 LOADPALETTES:
+    lda PALETTEDATA, x
     sta $2007
     inx
-    cpx #$20
+    cpx #$20                    ; loop exit condition: when x register == 0x20 (32 values have been loaded)
     bne LOADPALETTES
-;; TODO: finish setting up sprite data and palette data
+
+    ldx #$00                    ; reset the x register
+LOADSPRITES:
+    lda SPRITEDATA, x
+    sta $0200, x
+    inx
+    cpx #$10                    ; 16 bytes total (0x10), with 4 bytes per sprite loaded
+    bne LOADSPRITES
+
+    cli                         ; re-enable interrupts
+    lda #%10010000              ; tells the ppu to throw an NMI when vblank happens
+    sta $2000
+
+    lda #%00011110
+    sta $2001
 
 
 INFLOOP:
-jmp INFLOOP
+    jmp INFLOOP
 
 NMI:
-rti                         ; "return to interrupt" - basically if we get an NMI interrupt,
+    lda #$02
+    sta $4014
+    rti                     ; "return to interrupt" - basically if we get an NMI interrupt,
                             ; ignore it and go back to doing what we were doing
+
+PALETTEDATA:                    ; literally copy-pasted from tutorial (because we will get rid of this anyways)
+    .byte $00, $0F, $00, $10, 	$00, $0A, $15, $01, 	$00, $29, $28, $27, 	$00, $34, $24, $14 	;background palettes
+    .byte $31, $0F, $15, $30, 	$00, $0F, $11, $30, 	$00, $0F, $30, $27, 	$00, $3C, $2C, $1C 	;sprite palettes
+
+SPRITEDATA:                     ; also literally copy-pasted
+    .byte $40, $00, $00, $40
+    .byte $40, $01, $00, $48
+    .byte $48, $10, $00, $40
+    .byte $48, $11, $00, $48
 
 ;; this is a list of "handlers" for certain hardware events. it is essentially
 ;; all of the names for the "functions" we have written above
