@@ -20,7 +20,7 @@ RESET:
     cld                         ; disable decimal mode (unsupported by NES architecture)
 
     ;; the % here allows us to load 2-byte values
-    ldx #%1000000                ; disable sound irq (load literal value 0x1000000 into index, or index register, X)
+    ldx #%1000000                ; disable sound irq (load literal value 0b1000000 into index, or index register, X)
     stx $4017                    ; store that value to the address (4017)
     ldx #$00
     stx $4010                   ; disable pcm
@@ -100,6 +100,7 @@ LOADSPRITES:
     sta $2001
 
 
+;; wait for next thing
 INFLOOP:
     jmp INFLOOP
 
@@ -114,7 +115,8 @@ PALETTEDATA:                    ; literally copy-pasted from tutorial (because w
     .byte $31, $0F, $15, $30, 	$00, $0F, $11, $30, 	$00, $0F, $30, $27, 	$00, $3C, $2C, $1C 	;sprite palettes
 
 SPRITEDATA:                     ; also literally copy-pasted
-    .byte $40, $00, $00, $40
+    ;;    x    ssx  ssy  y
+    .byte $40, $01, $00, $40
     .byte $40, $01, $00, $48
     .byte $48, $10, $00, $40
     .byte $48, $11, $00, $48
@@ -122,7 +124,7 @@ SPRITEDATA:                     ; also literally copy-pasted
 ;; this is a list of "handlers" for certain hardware events. it is essentially
 ;; all of the names for the "functions" we have written above
 .segment "VECTORS"
-;; declare the non-maskable interrupt so that we can tell when the monitor
+    ;; declare the non-maskable interrupt so that we can tell when the monitor
     ;; is in vertical blank state (when it is done being written to)
     .word NMI                   
     ;; allows us to control what happens when someone hits the reset button
